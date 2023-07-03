@@ -102,42 +102,7 @@ class StockDataHandler:
         self.query_api_data(start_date.strftime('%Y%m%d'), end_date)
         self.create_pkl_file()
 
-    # def data_valid_check(self):
-    #     #时间对象
-    #     trade_dates = ak.tool_trade_date_hist_sina()["trade_date"]
-    #     trade_dates = [date.strftime("%Y-%m-%d") for date in trade_dates]
-    #
-    #     # Create an empty dataframe with trade dates as index and ts_code as columns
-    #     result_df = pd.DataFrame(index=trade_dates, columns=list(self.data.keys()))
-    #
-    #     for date in tqdm.tqdm(trade_dates, desc="outer", position=0):
-    #         for ts_code in tqdm.tqdm(self.data.keys(), desc='inner', position=1, leave=False):
-    #             if date in self.data[ts_code].columns and not self.data[ts_code][date].isnull().all():
-    #                 result_df.loc[date, ts_code] = "Available"
-    #             else:
-    #                 result_df.loc[date, ts_code] = "Missing"
-    #
-    #     # Convert the timestamps back to date strings
-    #     result_df.index = [datetime.fromtimestamp(date).strftime("%Y-%m-%d") for date in result_df.index]
-    #
-    #     #Write the result dataframe to Excel
-    #     writer = pd.ExcelWriter("stock_data_check.xlsx", engine="openpyxl")
-    #     result_df.to_excel(writer, index=True)
-    #     writer.save()
-    #
-    # def __is_valid(df):
-    #     for _, row in df.iterrows():
-    #         open_price = row[Column.OPEN.value]
-    #         high_price = row[Column.HIGH.value]
-    #         low_price = row[Column.LOW.value]
-    #         close_price = row[Column.CLOSE.value]
-    #         pre_close = row[Column.PRE_CLOSE.value]
-    #         change = row[Column.CHANGE.value]
-    #         pct_chg =row[Column.PCT_CHG.value]
-    #         vol = row[Column.VOL.value]
-    #         amount = row[Column.AMOUNT.value]
-
-    def check_data(self, columns=None, max_value=100000000):
+    def check_data(self, columns=None, max_value=100000000, write_to_file=False):
         if columns:
             pass
         else:
@@ -165,8 +130,21 @@ class StockDataHandler:
                 if null_dates or high_value_dates:
                     result.loc[ts_code, column] = null_dates + high_value_dates
 
-        # 删除数据ok的行
+        # 删除数据ok的行,此结果返回的是一个以股票代码为index的dataframe，其中有异常值的列会包含异常值日期列表
         result.dropna(how='all', inplace=True)
+
+        #输出有问题的行
+        for index, row in result.iterrows():
+            for column, value in row.items():
+                # 对每个元素执行操作
+                if isinstance(value, list) or isinstance(value, str):
+                    if value:
+                        print(self.data[index].loc[self.data[index]['trade_date'].isin(value)])
+
+        if write_to_file:
+            with open("check_result.pkl", 'wb') as f:
+                pickle.dump(result, f)
+
         return result
 
 
@@ -176,15 +154,7 @@ def main():
     s.load_pkl_file()
     # s.data_valid_check()
     r = s.check_data()
-    writer = pd.ExcelWriter("check_result.xlsx", engine="openpyxl")
-    r.to_excel(writer, index=True)
-    writer.save()
-    #r.apply(lambda x: print(s.data.loc[x, 'trade_date']) if isinstance(x, list) else None)
-    for index, row in r.iterrows():
-        for column, value in row.items():
-            # 对每个元素执行操作
-            if isinstance(value, list):
-                print(s.data[row['ts_code']].loc[column, :])
+
 
 
 
